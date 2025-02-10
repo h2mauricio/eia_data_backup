@@ -7,21 +7,22 @@ from time import sleep
 from pathlib import Path
 
 #get current working directory using pathlib
-#cwd = Path.cwd()
-#cwd = os.getcwd()
-cwd = Path('Z:\\EIA_backup\\data')
+cwd = Path.cwd()
+#cwd = Path('Z:\\EIA_backup\\data')
 
 hr_demand_path = Path(cwd).joinpath('..', 'data', 'operations_day_hour', 'hourly_demand')
 hr_demand_bytech_path = Path(cwd).joinpath('..', 'data', 'operations_day_hour', 'hourly_demand_bytech')
 hr_demand_bysubregion = Path(cwd).joinpath('..', 'data', 'operations_day_hour', 'hourly_demand_bysubregion')
+hr_interchange_path = Path(cwd).joinpath('..', 'data', 'operations_day_hour', 'hourly_interchange')
 
 #create folders if they dont exist
 hr_demand_path.mkdir(parents=True, exist_ok=True)
 hr_demand_bytech_path.mkdir(parents=True, exist_ok=True)
 hr_demand_bysubregion.mkdir(parents=True, exist_ok=True)
+hr_interchange_path.mkdir(parents=True, exist_ok=True)
 
-#api_key = '097E0917746D669FC846A22990D6F9CB'
-api_key = '577ljs0wPebQR1SJ6vZRmXOdF1AWpZZEvsPWQrZH' #Matthew's API key
+api_key = '097E0917746D669FC846A22990D6F9CB'
+#api_key = '577ljs0wPebQR1SJ6vZRmXOdF1AWpZZEvsPWQrZH' #Matthew's API key
 
 #%%
 def req_eia_hourly_data(api_url: str, api_key: str, ini_date= '2020-01-01T00', 
@@ -67,8 +68,6 @@ def req_eia_hourly_data(api_url: str, api_key: str, ini_date= '2020-01-01T00',
     sleep(pause_time)
     return data
 
-#%%
-
 def req_day_hourly_power_ops(api_key: str, day_dt:dt.datetime, type_data:str) -> pd.DataFrame:
     """
     Request generation by technology hourly data for a specific day to the EIA API V2
@@ -93,6 +92,8 @@ def req_day_hourly_power_ops(api_key: str, day_dt:dt.datetime, type_data:str) ->
         url = 'https://api.eia.gov/v2/electricity/rto/region-data/data/?'
     if type_data == 'demand_by_subregion':
         url = 'https://api.eia.gov/v2/electricity/rto/region-sub-ba-data/data/?'
+    if type_data == 'interchange':    
+        url = 'https://api.eia.gov/v2/electricity/rto/interchange-data/data/?'
         
     #url = 'https://api.eia.gov/v2/electricity/rto/region-data/data/?'
     #url = 'https://api.eia.gov/v2/electricity/rto/region-sub-ba-data/data/?'
@@ -135,7 +136,6 @@ def req_day_hourly_power_ops(api_key: str, day_dt:dt.datetime, type_data:str) ->
         df_eia['period'] = pd.to_datetime(df_eia['period'], utc=True)
         df_eia = df_eia.loc[df_eia['period'].dt.date == day_dt]
     return df_eia
-
 
 #%%
 """## Request Demand, Net Generation, Forecasted Demand, and Interchange Data"""
@@ -209,3 +209,28 @@ for day in range(0, n_days):
     
     day_dt = day_dt + dt.timedelta(days=1)
     sleep(0.3)
+    
+#%%
+"""## Request Interchange Data"""
+ini_day = '2019-01-01'
+end_day = '2019-01-03'
+
+ini_day_dt = dt.datetime.strptime(ini_day, '%Y-%m-%d').date()
+end_day_dt = dt.datetime.strptime(end_day, '%Y-%m-%d').date()
+
+day_dt = ini_day_dt
+n_days = (end_day_dt - ini_day_dt).days
+
+interchange_data = 'interchange'
+for day in range(0, n_days):
+    df_interchange = req_day_hourly_power_ops(api_key= api_key, 
+                                             day_dt=day_dt, 
+                                             type_data=interchange_data)
+    #Save data to csv
+    file_pathname = hr_interchange_path.joinpath(f'{day_dt}_hr_interchange.csv')
+    print(f"Saving hourly interchange data for {day_dt} in CSV")
+    df_interchange.to_csv(file_pathname, index=False)
+    
+    day_dt = day_dt + dt.timedelta(days=1)
+    sleep(0.3)
+# %%
