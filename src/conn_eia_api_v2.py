@@ -8,8 +8,8 @@ from pathlib import Path
 
 #get current working directory using pathlib
 #cwd = Path.cwd()
-cwd = os.getcwd()
-#cwd = Path('Z:\\EIA_backup\\data')
+#cwd = os.getcwd()
+cwd = Path('Z:\\EIA_backup\\data')
 
 hr_demand_path = Path(cwd).joinpath('..', 'data', 'operations_day_hour', 'hourly_demand')
 hr_demand_bytech_path = Path(cwd).joinpath('..', 'data', 'operations_day_hour', 'hourly_demand_bytech')
@@ -66,94 +66,6 @@ def req_eia_hourly_data(api_url: str, api_key: str, ini_date= '2020-01-01T00',
     #This pause is sometimes needed to avoid a 429 error from the API
     sleep(pause_time)
     return data
-
-def req_daily_demand(api_key: str, day_dt:dt.datetime) -> pd.DataFrame:
-    """
-    Request net generation, demand and demand forecast hourly data for a specific year to the EIA API V2
-
-    Parameters
-    ----------
-    api_key : str
-        API key to access the EIA API. Can be requested at https://www.eia.gov/opendata/register.php
-    day_dt : datetime
-        Date to request the data.
-
-    Returns
-    -------
-    dataframe
-        A dataframe with the requested data
-    """
-    df_eia = pd.DataFrame()
-
-    url = 'https://api.eia.gov/v2/electricity/rto/region-data/data/?'
-    end_period = day_dt + dt.timedelta(days=1)
-    print("--------------------------------------------")
-    print('Requesting net generation, demand and demand forecast from: {} T00 to: {} T23 '.format(day_dt, end_period))
-    # TODO: This method could be more efficient. EIA's API limits its data returns to the first 5,000 rows
-    # responsive to the request, we can set the length parameter to 5,000 (or a different length) and then use the
-    # offset parameter
-    #number_days = 1
-    offset = 0
-    
-    #for day in range(0, number_days):
-    day = 0
-    
-    while True:
-        start_date = day_dt + dt.timedelta(days=day)
-        end_date = day_dt + dt.timedelta(days=day + 1)
-        print(f'Requesting data for day: {start_date} to {end_date}')
-
-        json_resp = req_eia_hourly_data(api_url= url, 
-                                        api_key= api_key, 
-                                        ini_date= start_date, 
-                                        end_date = end_date,
-                                        offset = offset)
-        
-        df_resp = pd.json_normalize(json_resp, record_path =['data'])
-        #check id df_resp is empty
-        if not df_resp.empty:
-            df_eia = pd.concat([df_eia, df_resp], axis=0)
-            df_eia['period'] = pd.to_datetime(df_eia['period'], format='%Y-%m-%dT%H')
-        else:
-            print('Empty response for day: ', day)
-            break    
-        
-        if len(df_resp) == 5000:
-            offset += 5000
-            continue
-        else:
-            break
-    # if df_eia is not empty, convert period to datetime
-    if not df_eia.empty:
-        #df_eia['period'] = pd.to_datetime(df_eia['period'], format='%Y-%m-%dT%H')
-        df_eia['period'] = pd.to_datetime(df_eia['period'], utc=True)
-        #keep only the records from the requested day
-        df_eia = df_eia.loc[df_eia['period'].dt.date == day_dt]
-    
-    #print(f"Length of df_eia: {len(df_eia)}")
-    return df_eia
-
-#%%
-"""## Request Demand, Net Generation, Forecasted Demand, and Interchange Data"""
-ini_day = '2025-02-01'
-end_day = '2025-02-02'
-
-ini_day_dt = dt.datetime.strptime(ini_day, '%Y-%m-%d').date()
-end_day_dt = dt.datetime.strptime(end_day, '%Y-%m-%d').date()
-day_dt = ini_day_dt
-n_days = (end_day_dt - ini_day_dt).days
-
-for day in range(0, n_days):
-    df_eia_gen_demand = req_daily_demand(api_key= api_key, day_dt=day_dt)
-    #save data to csv
-    file_pathname = hr_demand_path.joinpath(f'{day_dt}_hr_demand_forec_gen_interch.csv')
-    print(f"Saving hourly demand and generation info for {day_dt} in CSV")
-    df_eia_gen_demand.to_csv(file_pathname, index=False)
-    
-    day_dt = day_dt + dt.timedelta(days=1)
-    sleep(0.5)
-    
-def reqgen
 
 #%%
 
@@ -224,10 +136,35 @@ def req_day_hourly_power_ops(api_key: str, day_dt:dt.datetime, type_data:str) ->
         df_eia = df_eia.loc[df_eia['period'].dt.date == day_dt]
     return df_eia
 
+
+#%%
+"""## Request Demand, Net Generation, Forecasted Demand, and Interchange Data"""
+ini_day = '2025-02-01'
+end_day = '2025-02-01'
+
+ini_day_dt = dt.datetime.strptime(ini_day, '%Y-%m-%d').date()
+end_day_dt = dt.datetime.strptime(end_day, '%Y-%m-%d').date()
+day_dt = ini_day_dt
+n_days = (end_day_dt - ini_day_dt).days
+
+demand_hr = 'hourly_demand'
+for day in range(0, n_days):
+    df_eia_gen_demand = req_day_hourly_power_ops(api_key= api_key,
+                                                    day_dt=day_dt,
+                                                    type_data=demand_hr)
+    #save data to csv
+    file_pathname = hr_demand_path.joinpath(f'{day_dt}_hr_demand.csv')
+    print(f"Saving hourly demand data for {day_dt} in CSV")
+    df_eia_gen_demand.to_csv(file_pathname, index=False)
+    
+    day_dt = day_dt + dt.timedelta(days=1)
+    sleep(0.3)
+    
+#%%
 """## Request Demand by Subregion Data"""
 
-ini_day = '2019-01-01'
-end_day = '2019-01-03'
+ini_day = '2019-01-03'
+end_day = '2025-02-05'
 
 ini_day_dt = dt.datetime.strptime(ini_day, '%Y-%m-%d').date()
 end_day_dt = dt.datetime.strptime(end_day, '%Y-%m-%d').date()
@@ -235,7 +172,6 @@ end_day_dt = dt.datetime.strptime(end_day, '%Y-%m-%d').date()
 day_dt = ini_day_dt
 n_days = (end_day_dt - ini_day_dt).days
 
-gen_bytech_data = 'gen_by_tech'
 demand_bysubregion_data = 'demand_by_subregion'
 for day in range(0, n_days):
     df_gen_bytech = req_day_hourly_power_ops(api_key= api_key, 
@@ -253,7 +189,7 @@ for day in range(0, n_days):
 #df_gen_bytech.to_csv(gen_by_tech_path.joinpath('gen_by_tech_{}.csv'.format(year)))
 #%%
 ini_day = '2019-01-01'
-end_day = '2022-01-01'
+end_day = '2019-01-01'
 
 ini_day_dt = dt.datetime.strptime(ini_day, '%Y-%m-%d').date()
 end_day_dt = dt.datetime.strptime(end_day, '%Y-%m-%d').date()
@@ -272,4 +208,4 @@ for day in range(0, n_days):
     df_gen_bytech.to_csv(file_pathname, index=False)
     
     day_dt = day_dt + dt.timedelta(days=1)
-    sleep(0.5)
+    sleep(0.3)
