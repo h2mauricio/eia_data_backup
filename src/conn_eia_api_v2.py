@@ -9,12 +9,16 @@ from pathlib import Path
 #get current working directory using pathlib
 #cwd = Path.cwd()
 cwd = os.getcwd()
+#cwd = Path('Z:\\EIA_backup\\data')
+
 hr_demand_path = Path(cwd).joinpath('..', 'data', 'operations_day_hour', 'hourly_demand')
 hr_demand_bytech_path = Path(cwd).joinpath('..', 'data', 'operations_day_hour', 'hourly_demand_bytech')
+hr_demand_bysubregion = Path(cwd).joinpath('..', 'data', 'operations_day_hour', 'hourly_demand_bysubregion')
 
 #create folders if they dont exist
 hr_demand_path.mkdir(parents=True, exist_ok=True)
 hr_demand_bytech_path.mkdir(parents=True, exist_ok=True)
+hr_demand_bysubregion.mkdir(parents=True, exist_ok=True)
 
 #api_key = '097E0917746D669FC846A22990D6F9CB'
 api_key = '577ljs0wPebQR1SJ6vZRmXOdF1AWpZZEvsPWQrZH' #Matthew's API key
@@ -129,62 +133,6 @@ def req_daily_demand(api_key: str, day_dt:dt.datetime) -> pd.DataFrame:
     #print(f"Length of df_eia: {len(df_eia)}")
     return df_eia
 
-def req_gen_bytech_year(api_key: str, year = 2020, list_bal_auth = ['CAL']) -> pd.DataFrame:
-    """
-    Request power generation by Type of Technology data for a specific year to the EIA API V2
-
-    Parameters
-    ----------
-    api_key : str
-        API key to access the EIA API. Can be requested at https://www.eia.gov/opendata/register.php
-    year : int, optional
-        The year to request the data. The default is 2020.
-    list_bal_auth : list, optional
-        List of balancing authorities to request the data. The default is Duke Energy: ['DUK'].
-
-    Returns
-    -------
-    dataframe
-        a dataframe with the requested data
-    """
-    df_eia = pd.DataFrame()
-    number_weeks = 53
-    first_date = dt.datetime.strptime((str(year) + '0101'), '%Y%m%d').date()
-    end_period = first_date + dt.timedelta(days=7*number_weeks)
-
-    bal_auth_str = ''
-    for bal_auth in list_bal_auth:
-        bal_auth_str = bal_auth_str + '&facets[respondent][]=' + bal_auth
-
-    url = 'https://api.eia.gov/v2/electricity/rto/fuel-type-data/data/?' + bal_auth_str
-
-    print("--------------------------------------------")
-    print('Requesting generation by tech from: {ini_date} T00 to: {end_date} T23'.format(ini_date=first_date,
-                                                                            end_date=end_period))
-
-    # TODO: This method could be more efficient. EIA's API limits its data returns to the first 5,000 rows
-    # responsive to the request, we can set the length parameter to 5,000 (or a different length) and then use the
-    # offset parameter
-    for week in range(0, number_weeks):
-        start_date = first_date + dt.timedelta(days=7*week)
-        end_date = start_date + dt.timedelta(days=6)
-
-        json_resp = req_eia_hourly_data(api_url= url, 
-                                        api_key= api_key, 
-                                        ini_date= start_date, 
-                                        end_date = end_date)
-        
-        df_resp = pd.json_normalize(json_resp, record_path =['data'])
-
-        if not df_resp.empty:
-            df_eia = pd.concat([df_eia, df_resp], axis=0)
-        else:
-            print('Empty response for week: ', week)
-    #filter by date, only values from the requested year
-
-    df_eia['period'] = pd.to_datetime(df_eia['period'], format='%Y-%m-%dT%H')
-    return df_eia
-
 #%%
 """## Request Demand, Net Generation, Forecasted Demand, and Interchange Data"""
 ini_day = '2025-02-01'
@@ -205,10 +153,11 @@ for day in range(0, n_days):
     day_dt = day_dt + dt.timedelta(days=1)
     sleep(0.5)
     
+def reqgen
 
 #%%
 
-def req_daily_gen_bytech(api_key: str, day_dt:dt.datetime) -> pd.DataFrame:
+def req_day_hourly_power_ops(api_key: str, day_dt:dt.datetime, type_data:str) -> pd.DataFrame:
     """
     Request generation by technology hourly data for a specific day to the EIA API V2
 
@@ -225,13 +174,22 @@ def req_daily_gen_bytech(api_key: str, day_dt:dt.datetime) -> pd.DataFrame:
         A dataframe with the requested data
     """
     df_eia = pd.DataFrame()
-
+    
+    if type_data == 'gen_by_tech':
+        url = 'https://api.eia.gov/v2/electricity/rto/fuel-type-data/data/?'
+    if type_data == 'hourly_demand':
+        url = 'https://api.eia.gov/v2/electricity/rto/region-data/data/?'
+    if type_data == 'demand_by_subregion':
+        url = 'https://api.eia.gov/v2/electricity/rto/region-sub-ba-data/data/?'
+        
     #url = 'https://api.eia.gov/v2/electricity/rto/region-data/data/?'
-    url = 'https://api.eia.gov/v2/electricity/rto/fuel-type-data/data/?'
+    #url = 'https://api.eia.gov/v2/electricity/rto/region-sub-ba-data/data/?'
+    #url = 'https://api.eia.gov/v2/electricity/rto/fuel-type-data/data/?'
+           
     print("--------------------------------------------")
-    print(f'Request generation by technology for: {day_dt}')
-    # TODO: This method could be more efficient. EIA's API limits its data returns 
-    #  the first 5,000 rows
+    print(f'Request {type_data} for: {day_dt}')
+    # TODO: This method could be more efficient. EIA's API limits its data 
+    # returns the first 5,000 rows
     offset = 0
     day = 0
     
@@ -266,9 +224,35 @@ def req_daily_gen_bytech(api_key: str, day_dt:dt.datetime) -> pd.DataFrame:
         df_eia = df_eia.loc[df_eia['period'].dt.date == day_dt]
     return df_eia
 
-"""## Request Generation by Technology Data"""
+"""## Request Demand by Subregion Data"""
 
-ini_day = '2019-01-31'
+ini_day = '2019-01-01'
+end_day = '2019-01-03'
+
+ini_day_dt = dt.datetime.strptime(ini_day, '%Y-%m-%d').date()
+end_day_dt = dt.datetime.strptime(end_day, '%Y-%m-%d').date()
+
+day_dt = ini_day_dt
+n_days = (end_day_dt - ini_day_dt).days
+
+gen_bytech_data = 'gen_by_tech'
+demand_bysubregion_data = 'demand_by_subregion'
+for day in range(0, n_days):
+    df_gen_bytech = req_day_hourly_power_ops(api_key= api_key, 
+                                             day_dt=day_dt, 
+                                             type_data=demand_bysubregion_data)
+    #Save data to csv
+    file_pathname = hr_demand_bysubregion.joinpath(f'{day_dt}_hr_demand_bysubregion.csv')
+    print(f"Saving hourly demand by subregion data for {day_dt} in CSV")
+    df_gen_bytech.to_csv(file_pathname, index=False)
+    
+    day_dt = day_dt + dt.timedelta(days=1)
+    sleep(0.3)
+    
+#print("Saving generation by technology info for {} in CSV".format(year))
+#df_gen_bytech.to_csv(gen_by_tech_path.joinpath('gen_by_tech_{}.csv'.format(year)))
+#%%
+ini_day = '2019-01-01'
 end_day = '2022-01-01'
 
 ini_day_dt = dt.datetime.strptime(ini_day, '%Y-%m-%d').date()
@@ -277,8 +261,11 @@ end_day_dt = dt.datetime.strptime(end_day, '%Y-%m-%d').date()
 day_dt = ini_day_dt
 n_days = (end_day_dt - ini_day_dt).days
 
+gen_bytech_data = 'gen_by_tech'
 for day in range(0, n_days):
-    df_gen_bytech = req_daily_gen_bytech(api_key= api_key, day_dt=day_dt)
+    df_gen_bytech = req_day_hourly_power_ops(api_key= api_key, 
+                                             day_dt=day_dt, 
+                                             type_data=gen_bytech_data)
     #Save data to csv
     file_pathname = hr_demand_bytech_path.joinpath(f'{day_dt}_hr_gen_bytech.csv')
     print(f"Saving hourly demand by technology data for {day_dt} in CSV")
@@ -286,7 +273,3 @@ for day in range(0, n_days):
     
     day_dt = day_dt + dt.timedelta(days=1)
     sleep(0.5)
-    
-#print("Saving generation by technology info for {} in CSV".format(year))
-#df_gen_bytech.to_csv(gen_by_tech_path.joinpath('gen_by_tech_{}.csv'.format(year)))
-# %%
