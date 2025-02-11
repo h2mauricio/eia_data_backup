@@ -5,6 +5,7 @@ import pandas as pd
 import datetime as dt
 from time import sleep
 from pathlib import Path
+from dotenv import load_dotenv
 
 #get current working directory using pathlib
 #cwd = Path.cwd()
@@ -23,9 +24,8 @@ hr_demand_bysubregion.mkdir(parents=True, exist_ok=True)
 hr_interchange_path.mkdir(parents=True, exist_ok=True)
 month_elect_sales_path.mkdir(parents=True, exist_ok=True)
 
-
-api_key = '097E0917746D669FC846A22990D6F9CB'
-#api_key = '577ljs0wPebQR1SJ6vZRmXOdF1AWpZZEvsPWQrZH' #Matthew's API key
+load_dotenv()
+api_key = os.getenv("EIA_API_KEY")
 
 #%%
 def req_eia_hourly_data(api_url: str, api_key: str, ini_date= '2020-01-01T00', 
@@ -238,4 +238,3 @@ for day in range(0, n_days):
     
     day_dt = day_dt + dt.timedelta(days=1)
     sleep(0.3)
-# %%

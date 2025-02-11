@@ -5,21 +5,24 @@ import pandas as pd
 import datetime as dt
 from time import sleep
 from pathlib import Path
-
+from dotenv import load_dotenv
 #get current working directory using pathlib
-#cwd = Path.cwd()
-cwd = Path('Z:\\EIA_backup\\data')
+cwd = Path.cwd()
+#cwd = Path('Z:\\EIA_backup\\data')
 month_elect_sales_path = Path(cwd).joinpath('..', 'data', 'operations_month', 'monthly_elect_sales')
 month_power_ops_path = Path(cwd).joinpath('..', 'data', 'operations_month', 'monthly_power_ops')
 
 month_elect_sales_path.mkdir(parents=True, exist_ok=True)
 month_power_ops_path.mkdir(parents=True, exist_ok=True)
 
-api_key = '097E0917746D669FC846A22990D6F9CB'
-#api_key = '577ljs0wPebQR1SJ6vZRmXOdF1AWpZZEvsPWQrZH' #Matthew's API key
+load_dotenv()
+api_key = os.getenv("EIA_API_KEY")
+
 
 #%%
-def req_eia_month_elect_sales(api_url: str, api_key: str, year: int, month: int, offset:int=0, pause_time:float=0.3) -> pd.DataFrame:
+def req_eia_month_elect_sales(api_url: str, api_key: str, 
+                              year: int, month: int, 
+                              offset:int=0, pause_time:float=0.3) -> pd.DataFrame:
     """
     Request electricity sales data for a specific year to the EIA API V2
 
@@ -61,7 +64,7 @@ def req_eia_month_elect_sales(api_url: str, api_key: str, year: int, month: int,
     sleep(pause_time)
     return data
         
-def req_eia_year_elect_sales(year: int) -> pd.DataFrame:
+def req_eia_year_elect_sales(api_key:str, year: int) -> pd.DataFrame:
     """
     Request electricity sales data for a specific year to the EIA API V2
 
@@ -94,10 +97,10 @@ def req_eia_year_elect_sales(year: int) -> pd.DataFrame:
         offset = 0
         while True:
             json_resp = req_eia_month_elect_sales(api_url= url,
-                                                    api_key= api_key,
-                                                    year= ini_month_dt.year,
-                                                    month= month,
-                                                    offset = offset)
+                                                  api_key= api_key,
+                                                  year= ini_month_dt.year,
+                                                  month= month,
+                                                  offset = offset)
             
             df_resp = pd.json_normalize(json_resp, record_path =['data'])
             #check id df_resp is empty
@@ -119,8 +122,8 @@ def req_eia_year_elect_sales(year: int) -> pd.DataFrame:
         #df_eia = df_eia.loc[df_eia['period'].dt.date == day_dt]
     return df_eia
         
-for year in range(2001, 2025):        
-    df_elect_sales = req_eia_year_elect_sales(year)
+for year in range(2001, 2002):        
+    df_elect_sales = req_eia_year_elect_sales(api_key, year)
     
     #Save data to csv
     file_pathname = month_elect_sales_path.joinpath(f'{year}_month_elect_sales.csv')
@@ -131,7 +134,9 @@ for year in range(2001, 2025):
     
 #%%
 
-def req_month_operations(api_url: str, api_key: str, year: int, month: int, offset:int=0, pause_time:float=0.3) -> pd.DataFrame:
+def req_month_operations(api_url: str, api_key: str, 
+                         year: int, month: int, offset:int=0, 
+                         pause_time:float=0.3) -> pd.DataFrame:
     """
     Request monthly electric power operations by state, sector, and energy source. Source: Form EIA-923
     
@@ -187,7 +192,7 @@ def req_month_operations(api_url: str, api_key: str, year: int, month: int, offs
     return data
 
 
-def req_year_operations(year: int) -> pd.DataFrame:
+def req_year_operations(api_key:str, year: int) -> pd.DataFrame:
     """
     Request annual electric power operations by state, sector, and energy source. Source: Form EIA-923
     
@@ -245,8 +250,8 @@ def req_year_operations(year: int) -> pd.DataFrame:
         #df_eia = df_eia.loc[df_eia['period'].dt.date == day_dt]
     return df_eia
 
-for year in range(2001, 2025):
-    df_month_ops = req_year_operations(year)
+for year in range(2001, 2001):
+    df_month_ops = req_year_operations(api_key, year)
     
     #Save data to csv
     file_pathname = month_power_ops_path.joinpath(f'{year}_month_power_ops.csv')
